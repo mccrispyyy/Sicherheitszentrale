@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="website icon" type="png" href="lock icon.png">
+    <title>Sicherheitszentrale</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(270deg, black, rgb(155, 155, 155));
+            background-size: 400% 400%;
+            animation: bwBackground 6s ease infinite;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            position: relative;
+        }
+
+        @keyframes bwBackground {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            animation: float 12s infinite ease-in-out;
+            opacity: 0.7;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(100vh) scale(0.5); opacity: 0.3; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(30, 60, 114, 0.9);
+            border-radius: 50px;
+            border-style: double;
+            border-color: white;
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            width: 200px;
+        }
+
+        button {
+            padding: 12px 20px;
+            margin-left: 10px;
+            border: none;
+            border-radius: 8px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .bluetooth {
+            background-color: rgb(85, 96, 252);
+
+        }
+
+        .bluetooth:hover{
+            background-color: black;
+        }
+
+        button:hover {
+            background-color: red;
+        }
+
+        #output {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        #animation-container {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 20px auto;
+        }
+
+        .lock, .key {
+            font-size: 5rem;
+            position: absolute;
+        }
+        
+        /* 🔓 */
+
+        .lock {
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .key {
+            left: -100px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: left 1s ease;
+        }
+
+        .key.move {
+            left: 32px;
+        }
+            
+    </style>
+</head>
+<body>
+
+    <div class="bubble" style="width: 60px; height: 60px; left: 10%; animation-duration: 14s;"></div>
+    <div class="bubble" style="width: 40px; height: 40px; left: 25%; animation-duration: 12s; animation-delay: 2s;"></div>
+    <div class="bubble" style="width: 80px; height: 80px; left: 40%; animation-duration: 16s; animation-delay: 4s;"></div>
+    <div class="bubble" style="width: 50px; height: 50px; left: 65%; animation-duration: 10s; animation-delay: 1s;"></div>
+    <div class="bubble" style="width: 70px; height: 70px; left: 80%; animation-duration: 18s; animation-delay: 3s;"></div>
+
+    <div class="container">
+        <button class="bluetooth" onclick="connectBluetooth()">Bluetooth verbinden</button>
+        <h1>Sicherheitszentrale</h1>
+        <div id="animation-container">
+            <div class="lock">🔒</div>
+            <div class="key" id="key">🔑</div>
+        </div>
+        <input type="password" id="userInput" placeholder="Type 'home' or 'away'">
+        <button onclick="submitText()">Senden</button>
+        <div id="output"></div>
+
+        <div id="bluetooth-status">Nicht verbunden</div>
+        <button onclick="connectBluetooth()">Bluetooth verbinden</button>
+        <button onclick="disconnectBluetooth()">Bluetooth trennen</button>
+    </div>
+
+    <script>
+        let device;
+    
+        function submitText() {
+            const userInput = document.getElementById('userInput').value.trim().toLowerCase();
+            const output = document.getElementById('output');
+            const key = document.getElementById('key');
+    
+            if (userInput === "home") {
+                output.innerText = "Zu Hause 🏡";
+                key.classList.remove('move');
+
+                sendToBluetooth("home");
+            } else if (userInput === "away") {
+                output.innerText = "Nicht zu Hause 🔒";
+                key.classList.add('move');
+
+                sendToBluetooth("away");
+            } else if (userInput !== "") {
+                output.innerText = `Eingabe: ${userInput}`;
+                key.classList.remove('move');
+            } else {
+                output.innerText = "Bitte etwas eingeben!";
+                key.classList.remove('move');
+            }
+    
+            document.getElementById('userInput').value = "";
+        }
+    
+        async function connectBluetooth() {
+            try {
+
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: ['battery_service'] }]
+                });
+    
+                const server = await device.gatt.connect();
+                console.log("Mit Gerät verbunden:", device.name);
+    
+                const service = await server.getPrimaryService('battery_service');
+                const batteryLevel = await service.getCharacteristic('battery_level');
+                const value = await batteryLevel.readValue();
+                console.log('Batteriestatus:', value.getUint8(0));
+
+                device.addEventListener('gattserverdisconnected', onDisconnected);
+            } catch (error) {
+                console.error("Fehler beim Verbinden mit dem Gerät:", error);
+            }
+        }
+    
+        function onDisconnected(event) {
+            console.log("Verbindung zum Gerät wurde getrennt.");
+        }
+    
+        async function sendToBluetooth(message) {
+            if (!device || !device.gatt.connected) {
+                console.error("Kein verbundenes Gerät.");
+                return;
+            }
+    
+            try {
+                const service = await device.gatt.getPrimaryService('your_service_uuid');
+                const characteristic = await service.getCharacteristic('your_characteristic_uuid');
+            
+                const encoder = new TextEncoder();
+                const encodedMessage = encoder.encode(message);
+                await characteristic.writeValue(encodedMessage);
+                console.log("Nachricht gesendet:", message);
+            } catch (error) {
+                console.error("Fehler beim Senden der Nachricht:", error);
+            }
+        }
+    
+        function disconnectBluetooth() {
+            if (device && device.gatt.connected) {
+                device.gatt.disconnect();
+                console.log("Bluetooth-Verbindung getrennt.");
+            }
+        }
+    </script>
+</body>
+</html>
